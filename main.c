@@ -38,6 +38,14 @@ long beat;
 struct Song songs[NUM_SONGS];
 
 //------------------------------------------------------------------------------
+// Interrupt Handler Prototypes
+//------------------------------------------------------------------------------
+void EXTI0_IRQHandler(void);
+void EXTI1_IRQHandler(void);
+void EXTI2_IRQHandler(void);
+void EXTI3_IRQHandler(void);
+
+//------------------------------------------------------------------------------
 // Function Prototypes
 //------------------------------------------------------------------------------
 void setup();
@@ -80,7 +88,20 @@ int main(void) {
 }
 
 void setup() {
+    RCC->AHBENR |= 0x07; // Enable GPIOA, GPIOB, and GPIOC clocks
 
+    // Inputs
+    GPIOA->MODER &= ~(0x000000FF); // Clear PA0-3 mode (input)
+    GPIOA->OSPEEDR &= ~(0x000000FF); // Clear PA0-3 speed
+    GPIOA->OSPEEDR |= (0x000000AA); // 50 MHz fast speed
+    GPIOA->PUPDR &= ~(0x000000FF); // Clear PA0-3 pull-up/pull-down (no PuPd)
+
+    // Outputs
+    GPIOA->MODER &= ~(0x003FFF00); // Clear PA4-10 mode
+    GPIOA->MODER |= (0x00155500); // Set PA4-10 as output
+    GPIOA->OTYPER &= ~(0x000007F0); // Clear PA4-10 out type (push/pull)
+    GPIOA->OSPEEDR &= ~(0x003FFF00); // Clear PA4-10 speed (2 MHz low speed)
+    GPIOA->PUPDR &= ~(0x003FFF00); // Clear PA4-10 pull-up/pull-down (no PuPd)
 }
 
 void homeState() {
