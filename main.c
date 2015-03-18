@@ -49,14 +49,6 @@ void EXTI3_IRQHandler(void);
 // Function Prototypes
 //------------------------------------------------------------------------------
 void setup();
-void homeState();
-void playState();
-void pauseState();
-int checkSongSelect();
-int checkModeSelect();
-int checkStart();
-int checkPause();
-int checkStop();
 void playBeat();
 void activateKeys(int* keys);
 void deactivateKeys(int* keys);
@@ -67,26 +59,70 @@ int main(void) {
     setup();
 
     while (1) {
-        switch(state) {
-            case HOME:
-                homeState();
-                break;
-            case PLAY:
-                playState();
-                break;
-            case PAUSE:
-                pauseState();
-                break;
-            default:
-                reset();
-                state = HOME;
-                homeState();
+        if (state == PLAY) {
+            playBeat();
+        } else if (state != HOME && state != PAUSE) {
+            reset();
+            state = HOME;
         }
     }
 
     return 0;
 }
 
+//------------------------------------------------------------------------------
+// Interrupt Handler Prototypes
+//------------------------------------------------------------------------------
+void EXTI0_IRQHandler(void) {
+    if (state == HOME) {
+        if (songID == NUM_SONGS - 1) {
+            songID = 0;
+        } else {
+            songID++;
+        }
+    }
+
+    EXTI->PR |= (0x00000001);
+    NVIC_ClearPendingIRQ(EXTI0_IRQn);
+}
+
+void EXTI1_IRQHandler(void) {
+    if (state == HOME) {
+        if (mode == 2) {
+            mode = 0;
+        } else {
+            mode++;
+        }
+    }
+
+    EXTI->PR |= (0x00000002);
+    NVIC_ClearPendingIRQ(EXTI1_IRQn);
+}
+
+void EXTI2_IRQHandler(void) {
+    if (state == HOME || state == PAUSE) {
+        state = PLAY;
+    } else if (state == PLAY) {
+        state = PAUSE;
+    }
+
+    EXTI->PR |= (0x00000004);
+    NVIC_ClearPendingIRQ(EXTI2_IRQn);
+}
+
+void EXTI3_IRQHandler(void) {
+    if (state == PLAY || state == PAUSE) {
+        beat = -1;
+        state = HOME;
+    }
+
+    EXTI->PR |= (0x00000008);
+    NVIC_ClearPendingIRQ(EXTI3_IRQn);
+}
+
+//------------------------------------------------------------------------------
+// Functions
+//------------------------------------------------------------------------------
 void setup() {
     RCC->AHBENR |= 0x07; // Enable GPIOA, GPIOB, and GPIOC clocks
 
@@ -102,62 +138,26 @@ void setup() {
     GPIOA->OTYPER &= ~(0x000007F0); // Clear PA4-10 out type (push/pull)
     GPIOA->OSPEEDR &= ~(0x003FFF00); // Clear PA4-10 speed (2 MHz low speed)
     GPIOA->PUPDR &= ~(0x003FFF00); // Clear PA4-10 pull-up/pull-down (no PuPd)
-}
 
-void homeState() {
-    int selectedSong = checkSongSelect();
-    if (selectedSong && selectedSong != songID) {
-        songID = selectedSong;
-    }
+    // Configure Interrupts
+    SYSCFG->EXTICR[0] &= ~(0xFFFF);
+    EXTI->RTSR &= ~(0x0000000F);
+    EXTI->FTSR &= ~(0x0000000F);
+    EXTI->FTSR |= (0x0000000F);
+    EXTI->IMR &= ~(0x0000000F);
+    EXTI->IMR |= (0x0000000F);
+    EXTI->PR |= (0x0000000F);
+    NVIC_EnableIRQ(EXTI0_IRQn);
+    NVIC_EnableIRQ(EXTI1_IRQn);
+    NVIC_EnableIRQ(EXTI2_IRQn);
+    NVIC_EnableIRQ(EXTI3_IRQn);
+    NVIC_ClearPendingIRQ(EXTI0_IRQn);
+    NVIC_ClearPendingIRQ(EXTI1_IRQn);
+    NVIC_ClearPendingIRQ(EXTI2_IRQn);
+    NVIC_ClearPendingIRQ(EXTI3_IRQn);
 
-    int selectedMode = checkModeSelect();
-    if (selectedMode && selectedMode != mode) {
-        mode = selectedMode;
-    }
-
-    if (checkStart()) {
-        state = PLAY;
-    }
-}
-
-void playState() {
-    if (checkStop()) {
-        beat = 0;
-        state = HOME;
-    } else if (checkPause()) {
-        state = PAUSE;
-    } else {
-        playBeat();
-    }
-}
-
-void pauseState() {
-    if (checkStop()) {
-        beat = 0;
-        state = HOME;
-    } else if (checkStart()) {
-        state = PLAY;
-    }
-}
-
-int checkSongSelect() {
-
-}
-
-int checkModeSelect() {
-
-}
-
-int checkStart() {
-
-}
-
-int checkPause() {
-
-}
-
-int checkStop() {
-
+    // Enable all interrupts
+    __enable_irq();
 }
 
 void playBeat() {
