@@ -12,7 +12,6 @@
 #define HOME        1
 #define PLAY        2
 #define PAUSE       3
-#define NUM_SONGS   4
 
 //------------------------------------------------------------------------------
 // Structs
@@ -21,7 +20,9 @@ struct Song {
     int tempo;
     int beat;
     int* onKeys;
+    int onKeysLength;
     int* offKeys;
+    int offKeysLength;
     int endOfSong;  
     char** notes;
     int noteIndex;
@@ -35,7 +36,8 @@ int state;
 int songID;
 int mode;
 long beat;
-struct Song songs[NUM_SONGS];
+struct Song* songs;
+int songsLength;
 
 //------------------------------------------------------------------------------
 // Interrupt Handler Prototypes
@@ -48,10 +50,13 @@ void EXTI3_IRQHandler(void);
 //------------------------------------------------------------------------------
 // Function Prototypes
 //------------------------------------------------------------------------------
+void reset();
 void setup();
+void loadSongs();
+int resetSong(int index);
 void playBeat();
-void activateKeys(int* keys);
-void deactivateKeys(int* keys);
+void activateKeys(int* keyArr, int length);
+void deactivateKeys(int* keyArr, int length);
 void deactivateAllKeys();
 char** str_split(char* str, const char delim);
 
@@ -75,12 +80,15 @@ int main(void) {
 //------------------------------------------------------------------------------
 void EXTI0_IRQHandler(void) {
     if (state == HOME) {
-        if (songID == NUM_SONGS - 1) {
+        if (songID == numSongs - 1) {
             songID = 0;
         } else {
             songID++;
         }
     }
+
+    GPIOA->ODR &= ~(0x00000030);
+    GPIOA->ODR |= songID << 4;
 
     EXTI->PR |= (0x00000001);
     NVIC_ClearPendingIRQ(EXTI0_IRQn);
@@ -95,16 +103,26 @@ void EXTI1_IRQHandler(void) {
         }
     }
 
+    GPIOA->ODR &= ~(0x000000C0);
+    GPIOA->ODR |= mode << 6;
+
     EXTI->PR |= (0x00000002);
     NVIC_ClearPendingIRQ(EXTI1_IRQn);
 }
 
 void EXTI2_IRQHandler(void) {
     if (state == HOME || state == PAUSE) {
+        if (state == HOME) {
+            resetSong(songID);
+            beat = -1;
+        }
         state = PLAY;
     } else if (state == PLAY) {
         state = PAUSE;
     }
+
+    GPIOA->ODR &= ~(0x00000300);
+    GPIOA->ODR |= state << 8;
 
     EXTI->PR |= (0x00000004);
     NVIC_ClearPendingIRQ(EXTI2_IRQn);
@@ -112,9 +130,11 @@ void EXTI2_IRQHandler(void) {
 
 void EXTI3_IRQHandler(void) {
     if (state == PLAY || state == PAUSE) {
-        beat = -1;
         state = HOME;
     }
+
+    GPIOA->ODR &= ~(0x00000300);
+    GPIOA->ODR |= state << 8;
 
     EXTI->PR |= (0x00000008);
     NVIC_ClearPendingIRQ(EXTI3_IRQn);
@@ -123,7 +143,27 @@ void EXTI3_IRQHandler(void) {
 //------------------------------------------------------------------------------
 // Functions
 //------------------------------------------------------------------------------
+void reset() {
+    state = HOME;
+    songID = 0;
+    mode = 0;
+    beat = -1;
+
+    // Reset State LEDs
+    GPIOA->ODR &= ~(0x00000300);
+    GPIOA->ODR |= state << 8;
+
+    // Reset Song ID LEDs
+    GPIOA->ODR &= ~(0x00000030);
+    GPIOA->ODR |= songID << 4;
+
+    // Reset Mode LEDs
+    GPIOA->ODR &= ~(0x000000C0);
+    GPIOA->ODR |= mode << 6;
+}
+
 void setup() {
+    // Ports
     RCC->AHBENR |= 0x07; // Enable GPIOA, GPIOB, and GPIOC clocks
 
     // Inputs
@@ -156,27 +196,75 @@ void setup() {
     NVIC_ClearPendingIRQ(EXTI2_IRQn);
     NVIC_ClearPendingIRQ(EXTI3_IRQn);
 
+    // Variables
+    reset();
+
+    // Songs
+    loadSongs();
+
     // Enable all interrupts
     __enable_irq();
 }
 
+void loadSongs() {
+    int empty[1] = {0};
+    char songNotes1[5][200];
+    songNotes1[0] = "1/0|";
+    songNotes1[1] = "5/1|";
+    songNotes1[2] = "9/2|";
+    songNotes1[3] = "13/|2";
+    songNotes1[4] = "17/|1";
+    struct Song song1 = {
+        .tempo = 50,
+        .beat = 0,
+        .onKeys = empty,
+        .onKeysLength = 0,
+        .offKeys = empty,
+        .offKeysLength = 0,
+        .endOfSong = 0,
+        .notes = songNotes1,
+        .noteIndex = 0,
+        .notesLength = 5
+    };
+
+    numSongs = 1
+    struct Song newSongs[numSongs];
+    newSongs[0] = song1;
+    songs = newSongs;
+}
+
+int  resetSong(int index) {
+    if (index >= 0 && index <= numSongs - 1 && songs[index] != NULL) {
+        int empty[1] = {0};
+        songs[index]->beat = 0;
+        songs[index]->onKeys = empty;
+        songs[index]->onKeysLength = 0;
+        songs[index]->offKeys = empty;
+        songs[index]->offKeysLength = 0;
+        songs[index]->endOfSong = 0;
+        songs[index]->noteIndex = 0;
+
+        return 1;
+    }
+
+    return 0;
+}
+
 void playBeat() {
-    if ((beat / songs[songID].tempo) >= songs[songID].beat) {
-        if (songs[songID].endOfSong) {
+    if ((beat / songs[songID]->tempo) >= songs[songID]->beat) {
+        if (songs[songID]->endOfSong) {
             deactivateAllKeys();
-            beat = -2;
             state = HOME;
         } else {
-            activateKeys(songs[songID].onKeys);
-            deactivateKeys(songs[songID].offKeys);
-            if (songs[songID].noteIndex >= songs[songID].notesLength - 1) {
-                songs[songID].endOfSong = 1;
-                songs[songID].beat++;
+            activateKeys(songs[songID]->onKeys, songs[songID]->onKeysLength);
+            deactivateKeys(songs[songID]->offKeys, songs[songID]->offKeysLength);
+            if (songs[songID]->noteIndex >= songs[songID]->notesLength) {
+                songs[songID]->endOfSong = 1;
+                songs[songID]->beat++;
             } else {
-                songs[songID].noteIndex++;
-                char line[sizeof(songs[songsID].notes[songs[songID].noteIndex])], *tofree;
+                char line[sizeof(songs[songID]->notes[songs[songID]->noteIndex])], *tofree;
                 char* beatNumStr, onKeyStr, offKeyStr;
-                strcpy(line, songs[songID].notes[songs[songID].noteIndex]);
+                strcpy(line, songs[songID]->notes[songs[songID]->noteIndex]);
                 tofree = line;
 
                 beatNumStr = strsep(&line, "/");
@@ -185,7 +273,7 @@ void playBeat() {
 
                 long beatNum;
                 char** onKeyArr, offKeyArr;
-                int onKeys[100], offKeys[100];
+                int onKeys[100], offKeys[100], onKeysLength, offKeysLength;
                 beatNum = strtol(beatNumStr, (char**) NULL, 10);
                 onKeyArr = str_split(onKeyStr, ",");
                 offKeyArr = str_split(offKeyStr, ",");
@@ -195,16 +283,21 @@ void playBeat() {
                     onKeys[i] = strtol(onKeyArr[i], (char**) NULL, 10);
                     i++;
                 }
+                onKeysLength = i;
 
                 i = 0;
                 while (offKeyArr[i] != NULL) {
                     offKeys[i] = strtol(offKeyArr[i], (char**) NULL, 10);
                     i++;
                 }
+                offKeysLength = i;
 
-                songs[songID].beat = beatNum;
-                songs[songID].onKeys = onKeys;
-                songs[songID].offKeys = offKeys;
+                songs[songID]->beat = beatNum;
+                songs[songID]->onKeys = onKeys;
+                songs[songID]->onKeysLength = onKeysLength;
+                songs[songID]->offKeys = offKeys;
+                songs[songID]->offKeysLength = offKeysLength;
+                songs[songID]->noteIndex++;
 
                 free(tofree);
             }
@@ -213,16 +306,43 @@ void playBeat() {
     beat++;
 }
 
-void activateKeys(int* keys) {
+void activateKeys(int* keyArr, int length) {
+    uint32_t activateB = (0x00000000);
+    uint32_t activateC = (0x00000000);
 
+    for (int i = 0; i < length; i++) {
+        int key = keyArr[i];
+        if (key >= 0 && key <=15) {
+            activateB |= 1 << key;
+        } else if (key >= 16 && key <= 31) {
+            activateC |= 1 << (key - 16);
+        }
+    }
+
+    GPIOB->ODR |= activateB;
+    GPIOC->ODR |= activateC;
 }
 
-void deactivateKeys(int* keys) {
+void deactivateKeys(int* keyArr, int length) {
+    uint32_t deactivateB = (0x00000000);
+    uint32_t deactivateC = (0x00000000);
 
+    for (int i = 0; i < length; i++) {
+        int key = keyArr[i];
+        if (key >= 0 && key <=15) {
+            deactivateB |= 1 << key;
+        } else if (key >= 16 && key <= 31) {
+            deactivateC |= 1 << (key - 16);
+        }
+    }
+
+    GPIOB->ODR &= ~(deactivateB);
+    GPIOC->ODR &= ~(deactivateC);
 }
 
 void deactivateAllKeys() {
-
+    GPIOB->ODR &= ~(0x0000FFFF);
+    GPIOC->ODR &= ~(0x0000FFFF);
 }
 
 char** str_split(char* a_str, const char a_delim) {
