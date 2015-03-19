@@ -2,7 +2,7 @@
 // Includes
 //------------------------------------------------------------------------------
 #include "STM32L1xx.h"
-#include <string.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -37,7 +37,7 @@ int songID;
 int mode;
 long beat;
 struct Song* songs;
-int songsLength;
+int numSongs;
 
 //------------------------------------------------------------------------------
 // Interrupt Handler Prototypes
@@ -50,15 +50,19 @@ void EXTI3_IRQHandler(void);
 //------------------------------------------------------------------------------
 // Function Prototypes
 //------------------------------------------------------------------------------
-void reset();
-void setup();
-void loadSongs();
+void reset(void);
+void setup(void);
+void loadSongs(void);
 int resetSong(int index);
-void playBeat();
+void playBeat(void);
 void activateKeys(int* keyArr, int length);
 void deactivateKeys(int* keyArr, int length);
-void deactivateAllKeys();
+void deactivateAllKeys(void);
 char** str_split(char* str, const char delim);
+char *strdup(const char *s);
+char *strcpy(char *dest, const char *src);
+size_t strlen(const char *s);
+char *strtok(char *str, const char *delim);
 
 int main(void) {
     setup();
@@ -71,8 +75,6 @@ int main(void) {
             state = HOME;
         }
     }
-
-    return 0;
 }
 
 //------------------------------------------------------------------------------
@@ -207,42 +209,37 @@ void setup() {
 }
 
 void loadSongs() {
-    int empty[1] = {0};
-    char songNotes1[5][200];
-    songNotes1[0] = "1/0|";
-    songNotes1[1] = "5/1|";
-    songNotes1[2] = "9/2|";
-    songNotes1[3] = "13/|2";
-    songNotes1[4] = "17/|1";
+    static const int *empty[1] = {0};
+    static const char *songNotes1[5][200] = {"1/0|", "5/1|", "9/2|", "13/|2", "17/1"};
     struct Song song1 = {
-        .tempo = 50,
-        .beat = 0,
-        .onKeys = empty,
-        .onKeysLength = 0,
-        .offKeys = empty,
-        .offKeysLength = 0,
-        .endOfSong = 0,
-        .notes = songNotes1,
-        .noteIndex = 0,
-        .notesLength = 5
+        50,
+        0,
+        (int*) empty,
+        0,
+        (int*) empty,
+        0,
+        0,
+        (char**) songNotes1,
+        0,
+        5
     };
+    struct Song newSongs[1];
 
-    numSongs = 1
-    struct Song newSongs[numSongs];
+    numSongs = 1;
     newSongs[0] = song1;
     songs = newSongs;
 }
 
 int  resetSong(int index) {
-    if (index >= 0 && index <= numSongs - 1 && songs[index] != NULL) {
+    if (index >= 0 && index <= numSongs - 1) {
         int empty[1] = {0};
-        songs[index]->beat = 0;
-        songs[index]->onKeys = empty;
-        songs[index]->onKeysLength = 0;
-        songs[index]->offKeys = empty;
-        songs[index]->offKeysLength = 0;
-        songs[index]->endOfSong = 0;
-        songs[index]->noteIndex = 0;
+        songs[index].beat = 0;
+        songs[index].onKeys = empty;
+        songs[index].onKeysLength = 0;
+        songs[index].offKeys = empty;
+        songs[index].offKeysLength = 0;
+        songs[index].endOfSong = 0;
+        songs[index].noteIndex = 0;
 
         return 1;
     }
@@ -251,34 +248,37 @@ int  resetSong(int index) {
 }
 
 void playBeat() {
-    if ((beat / songs[songID]->tempo) >= songs[songID]->beat) {
-        if (songs[songID]->endOfSong) {
+    if ((beat / songs[songID].tempo) >= songs[songID].beat) {
+        if (songs[songID].endOfSong) {
             deactivateAllKeys();
             state = HOME;
         } else {
-            activateKeys(songs[songID]->onKeys, songs[songID]->onKeysLength);
-            deactivateKeys(songs[songID]->offKeys, songs[songID]->offKeysLength);
-            if (songs[songID]->noteIndex >= songs[songID]->notesLength) {
-                songs[songID]->endOfSong = 1;
-                songs[songID]->beat++;
+            activateKeys(songs[songID].onKeys, songs[songID].onKeysLength);
+            deactivateKeys(songs[songID].offKeys, songs[songID].offKeysLength);
+            if (songs[songID].noteIndex >= songs[songID].notesLength) {
+                songs[songID].endOfSong = 1;
+                songs[songID].beat++;
             } else {
-                char line[sizeof(songs[songID]->notes[songs[songID]->noteIndex])], *tofree;
-                char* beatNumStr, onKeyStr, offKeyStr;
-                strcpy(line, songs[songID]->notes[songs[songID]->noteIndex]);
+                int i;
+                long beatNum;
+                char line[sizeof(songs[songID].notes[songs[songID].noteIndex])], *tofree;
+                char *beatNumStr, *onKeyStr, *offKeyStr;
+                char **beatSplit, **keySplit, **onKeyArr, **offKeyArr;
+                int onKeys[100], offKeys[100], onKeysLength, offKeysLength;
+                strcpy(line, songs[songID].notes[songs[songID].noteIndex]);
                 tofree = line;
 
-                beatNumStr = strsep(&line, "/");
-                onKeyStr = strsep(&line, "|");
-                offKeyStr = line;
+                beatSplit = str_split(line, '/');
+                beatNumStr = beatSplit[0];
+                keySplit = str_split(beatSplit[1], '|');
+                onKeyStr = keySplit[0];
+                offKeyStr = keySplit[1];
 
-                long beatNum;
-                char** onKeyArr, offKeyArr;
-                int onKeys[100], offKeys[100], onKeysLength, offKeysLength;
                 beatNum = strtol(beatNumStr, (char**) NULL, 10);
-                onKeyArr = str_split(onKeyStr, ",");
-                offKeyArr = str_split(offKeyStr, ",");
+                onKeyArr = str_split(onKeyStr, ',');
+                offKeyArr = str_split(offKeyStr, ',');
 
-                int i = 0;
+                i = 0;
                 while (onKeyArr[i] != NULL) {
                     onKeys[i] = strtol(onKeyArr[i], (char**) NULL, 10);
                     i++;
@@ -292,12 +292,12 @@ void playBeat() {
                 }
                 offKeysLength = i;
 
-                songs[songID]->beat = beatNum;
-                songs[songID]->onKeys = onKeys;
-                songs[songID]->onKeysLength = onKeysLength;
-                songs[songID]->offKeys = offKeys;
-                songs[songID]->offKeysLength = offKeysLength;
-                songs[songID]->noteIndex++;
+                songs[songID].beat = beatNum;
+                songs[songID].onKeys = onKeys;
+                songs[songID].onKeysLength = onKeysLength;
+                songs[songID].offKeys = offKeys;
+                songs[songID].offKeysLength = offKeysLength;
+                songs[songID].noteIndex++;
 
                 free(tofree);
             }
@@ -309,8 +309,8 @@ void playBeat() {
 void activateKeys(int* keyArr, int length) {
     uint32_t activateB = (0x00000000);
     uint32_t activateC = (0x00000000);
-
-    for (int i = 0; i < length; i++) {
+    int i;
+    for (i = 0; i < length; i++) {
         int key = keyArr[i];
         if (key >= 0 && key <=15) {
             activateB |= 1 << key;
@@ -326,8 +326,8 @@ void activateKeys(int* keyArr, int length) {
 void deactivateKeys(int* keyArr, int length) {
     uint32_t deactivateB = (0x00000000);
     uint32_t deactivateC = (0x00000000);
-
-    for (int i = 0; i < length; i++) {
+    int i;
+    for (i = 0; i < length; i++) {
         int key = keyArr[i];
         if (key >= 0 && key <=15) {
             deactivateB |= 1 << key;
@@ -390,4 +390,13 @@ char** str_split(char* a_str, const char a_delim) {
     }
 
     return result;
+}
+
+char *strdup (const char *s) {
+    char *d = malloc(strlen(s) + 1);
+    if (d == NULL) {
+        return NULL;
+    }
+    strcpy(d, s);
+    return d;
 }
