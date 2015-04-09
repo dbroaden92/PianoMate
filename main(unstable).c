@@ -82,8 +82,8 @@ int main(void) {
 // Interrupt Handler Prototypes
 //------------------------------------------------------------------------------
 // Song Select Button
-void EXTI0_IRQHandler(void) {
-    if ((EXTI->IMR & EXTI_IMR_MR0) && (EXTI->PR & EXTI_PR_PR0)) {
+void EXTI12_IRQHandler(void) {
+    if ((EXTI->IMR & EXTI_IMR_MR12) && (EXTI->PR & EXTI_PR_PR12)) {
         if (state == HOME) {
             if (songID == NUM_SONGS - 1) {
                 songID = 0;
@@ -95,14 +95,14 @@ void EXTI0_IRQHandler(void) {
         GPIOA->ODR &= ~(0x00000030);
         GPIOA->ODR |= songID << 4;
 
-        EXTI->PR |= EXTI_PR_PR0;
-        NVIC_ClearPendingIRQ(EXTI0_IRQn);
+        EXTI->PR |= EXTI_PR_PR12;
+        NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
     }
 }
 
 // Mode Select Button
-void EXTI1_IRQHandler(void) {
-    if ((EXTI->IMR & EXTI_IMR_MR1) && (EXTI->PR & EXTI_PR_PR1)) {
+void EXTI13_IRQHandler(void) {
+    if ((EXTI->IMR & EXTI_IMR_MR13) && (EXTI->PR & EXTI_PR_PR13)) {
         if (state == HOME) {
             if (mode == 2) {
                 mode = 0;
@@ -114,14 +114,14 @@ void EXTI1_IRQHandler(void) {
         GPIOA->ODR &= ~(0x000000C0);
         GPIOA->ODR |= mode << 6;
 
-        EXTI->PR |= EXTI_PR_PR1;
-        NVIC_ClearPendingIRQ(EXTI1_IRQn);
+        EXTI->PR |= EXTI_PR_PR13;
+        NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
     }
 }
 
 // Play/Pause Button
-void EXTI2_IRQHandler(void) {
-    if ((EXTI->IMR & EXTI_IMR_MR2) && (EXTI->PR & EXTI_PR_PR2)) {
+void EXTI14_IRQHandler(void) {
+    if ((EXTI->IMR & EXTI_IMR_MR14) && (EXTI->PR & EXTI_PR_PR14)) {
         if (state == HOME || state == PAUSE) {
             if (state == HOME) {
                 resetSong(songID);
@@ -135,14 +135,14 @@ void EXTI2_IRQHandler(void) {
         GPIOA->ODR &= ~(0x00000300);
         GPIOA->ODR |= state << 8;
 
-        EXTI->PR |= EXTI_PR_PR2;
-        NVIC_ClearPendingIRQ(EXTI2_IRQn);
+        EXTI->PR |= EXTI_PR_PR14;
+        NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
     }
 }
 
 // Stop Button
-void EXTI3_IRQHandler(void) {
-    if ((EXTI->IMR & EXTI_IMR_MR3) && (EXTI->PR & EXTI_PR_PR3)) {
+void EXTI15_IRQHandler(void) {
+    if ((EXTI->IMR & EXTI_IMR_MR15) && (EXTI->PR & EXTI_PR_PR15)) {
         if (state == PLAY || state == PAUSE) {
             state = HOME;
         }
@@ -152,8 +152,8 @@ void EXTI3_IRQHandler(void) {
         GPIOA->ODR &= ~(0x00000300);
         GPIOA->ODR |= state << 8;
 
-        EXTI->PR |= EXTI_PR_PR3;
-        NVIC_ClearPendingIRQ(EXTI3_IRQn);
+        EXTI->PR |= EXTI_PR_PR15;
+        NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
     }
 }
 
@@ -194,10 +194,10 @@ void setup() {
     RCC->AHBENR |= 0x07; // Enable GPIOA, GPIOB, and GPIOC clocks
 
     // Inputs
-    GPIOA->MODER &= ~(0x000000FF); // Clear PA0-3 mode (input)
-    GPIOA->OSPEEDR &= ~(0x000000FF); // Clear PA0-3 speed
-    GPIOA->OSPEEDR |= (0x000000AA); // 50 MHz fast speed
-    GPIOA->PUPDR &= ~(0x000000FF); // Clear PA0-3 pull-up/pull-down (no PuPd)
+    GPIOA->MODER &= ~(0xFF000000); // Clear PA12-15 mode (input)
+    GPIOA->OSPEEDR &= ~(0xFF000000); // Clear PA12-15 speed
+    GPIOA->OSPEEDR |= (0xAA000000); // 50 MHz fast speed
+    GPIOA->PUPDR &= ~(0xFF000000); // Clear PA12-15 pull-up/pull-down (no PuPd)
 
     // Outputs
     GPIOA->MODER &= ~(0x003FFF00); // Clear PA4-10 mode
@@ -219,21 +219,15 @@ void setup() {
     GPIOC->PUPDR &= ~(0xFFFFFFFF);
 
     // Configure Interrupts
-    SYSCFG->EXTICR[0] &= ~(0xFFFF);
-    EXTI->RTSR &= ~(0x0000000F);
-    EXTI->FTSR &= ~(0x0000000F);
-    EXTI->FTSR |= (0x0000000F);
-    EXTI->IMR &= ~(0x0000000F);
-    EXTI->IMR |= (0x0000000F);
-    EXTI->PR |= (0x0000000F);
-    NVIC_EnableIRQ(EXTI0_IRQn);
-    NVIC_EnableIRQ(EXTI1_IRQn);
-    NVIC_EnableIRQ(EXTI2_IRQn);
-    NVIC_EnableIRQ(EXTI3_IRQn);
-    NVIC_ClearPendingIRQ(EXTI0_IRQn);
-    NVIC_ClearPendingIRQ(EXTI1_IRQn);
-    NVIC_ClearPendingIRQ(EXTI2_IRQn);
-    NVIC_ClearPendingIRQ(EXTI3_IRQn);
+    SYSCFG->EXTICR[3] &= ~(0xFFFF);
+    EXTI->RTSR &= ~(0x0000F000); // Clear rising trigger enable
+    EXTI->RTSR |= (0x0000F000); // Set to rising trigger enable
+    EXTI->FTSR &= ~(0x0000F000); // Clear falling trigger enable
+    EXTI->IMR &= ~(0x0000F000); // Clear interrupt masks (disables interrupts)
+    EXTI->IMR |= (0x0000F000); // Unmasks interrupts (enables interrupts)
+    EXTI->PR |= (0x0000F000); // Clear pending register by writing a 1 to it
+    NVIC_EnableIRQ(EXTI15_10_IRQn);
+    NVIC_ClearPendingIRQ(EXTI15_10_IRQn);
 
     // Variables
     reset();
