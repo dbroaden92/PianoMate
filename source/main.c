@@ -49,14 +49,21 @@ void EXTI3_IRQHandler(void);
 //------------------------------------------------------------------------------
 // Function Prototypes
 //------------------------------------------------------------------------------
-void reset(void);
 void setup(void);
+void reset(void);
 void loadSongs(void);
+void changeState(int);
+void changeSong(int);
+void changeMode(int);
 int resetSong(int index);
 void playBeat(void);
 void activateKeys(int* keyArr, int length);
 void deactivateKeys(int* keyArr, int length);
 void deactivateAllKeys(void);
+
+//------------------------------------------------------------------------------
+// Utility Function Prototypes
+//------------------------------------------------------------------------------
 char** str_split(char* str, const char delim);
 char *strdup(const char *s);
 char *strcpy(char *dest, const char *src);
@@ -70,10 +77,8 @@ int main(void) {
     while (1) {
         if (state == PLAY) {
             playBeat();
-            GPIOA->ODR = ~(GPIOA->ODR^~(0x00000400));
         } else if (state != HOME && state != PAUSE) {
             reset();
-            state = HOME;
         }
     }
 }
@@ -86,14 +91,11 @@ void EXTI0_IRQHandler(void) {
     if ((EXTI->IMR & EXTI_IMR_MR0) && (EXTI->PR & EXTI_PR_PR0)) {
         if (state == HOME) {
             if (songID == NUM_SONGS - 1) {
-                songID = 0;
+                changeSong(0);
             } else {
-                songID++;
+                changeSong(songID + 1);
             }
         }
-
-        GPIOA->ODR &= ~(0x00000030);
-        GPIOA->ODR |= songID << 4;
 
         EXTI->PR |= EXTI_PR_PR0;
         NVIC_ClearPendingIRQ(EXTI0_IRQn);
@@ -105,14 +107,11 @@ void EXTI1_IRQHandler(void) {
     if ((EXTI->IMR & EXTI_IMR_MR1) && (EXTI->PR & EXTI_PR_PR1)) {
         if (state == HOME) {
             if (mode == 2) {
-                mode = 0;
+                changeMode(0);
             } else {
-                mode++;
+                changeMode(mode + 1);
             }
         }
-
-        GPIOA->ODR &= ~(0x000000C0);
-        GPIOA->ODR |= mode << 6;
 
         EXTI->PR |= EXTI_PR_PR1;
         NVIC_ClearPendingIRQ(EXTI1_IRQn);
@@ -127,13 +126,10 @@ void EXTI2_IRQHandler(void) {
                 resetSong(songID);
                 beat = -1;
             }
-            state = PLAY;
+            changeState(PLAY);
         } else if (state == PLAY) {
-            state = PAUSE;
+            changeState(PAUSE);
         }
-
-        GPIOA->ODR &= ~(0x00000300);
-        GPIOA->ODR |= state << 8;
 
         EXTI->PR |= EXTI_PR_PR2;
         NVIC_ClearPendingIRQ(EXTI2_IRQn);
@@ -144,13 +140,9 @@ void EXTI2_IRQHandler(void) {
 void EXTI3_IRQHandler(void) {
     if ((EXTI->IMR & EXTI_IMR_MR3) && (EXTI->PR & EXTI_PR_PR3)) {
         if (state == PLAY || state == PAUSE) {
-            state = HOME;
+            changeState(HOME);
+            deactivateAllKeys();
         }
-
-        deactivateAllKeys();
-
-        GPIOA->ODR &= ~(0x00000300);
-        GPIOA->ODR |= state << 8;
 
         EXTI->PR |= EXTI_PR_PR3;
         NVIC_ClearPendingIRQ(EXTI3_IRQn);
@@ -160,35 +152,6 @@ void EXTI3_IRQHandler(void) {
 //------------------------------------------------------------------------------
 // Functions
 //------------------------------------------------------------------------------
-void reset() {
-    //***NOTICE***//
-    // state temporarily set to PLAY for testing purposes. It should be HOME.
-    state = PLAY;
-    songID = 0;
-    mode = 0;
-    beat = -1;
-
-    // Reset State LEDs
-    GPIOA->ODR &= ~(0x00000300);
-    GPIOA->ODR |= state << 8;
-
-    // Reset Song ID LEDs
-    GPIOA->ODR &= ~(0x00000030);
-    GPIOA->ODR |= songID << 4;
-
-    // Reset Mode LEDs
-    GPIOA->ODR &= ~(0x000000C0);
-    GPIOA->ODR |= mode << 6;
-
-    // Clear Beat Pulse
-    GPIOA->ODR &= ~(0x00000400);
-
-    deactivateAllKeys();
-
-    // Clear Inputs
-    GPIOA->IDR &= ~(0x0000000F);
-}
-
 void setup() {
     // Ports
     RCC->AHBENR |= 0x07; // Enable GPIOA, GPIOB, and GPIOC clocks
@@ -196,7 +159,7 @@ void setup() {
     // Inputs
     GPIOA->MODER &= ~(0x000000FF); // Clear PA0-3 mode (input)
     GPIOA->OSPEEDR &= ~(0x000000FF); // Clear PA0-3 speed
-    GPIOA->OSPEEDR |= (0x000000AA); // 50 MHz fast speed
+    GPIOA->OSPEEDR |= (0x00000055); // 25 MHz medium speed
     GPIOA->PUPDR &= ~(0x000000FF); // Clear PA0-3 pull-up/pull-down (no PuPd)
 
     // Outputs
@@ -217,6 +180,7 @@ void setup() {
     GPIOC->OTYPER &= ~(0x0000FFFF);
     GPIOC->OSPEEDR &= ~(0xFFFFFFFF);
     GPIOC->PUPDR &= ~(0xFFFFFFFF);
+
 
     // Configure Interrupts
     SYSCFG->EXTICR[0] &= ~(0xFFFF);
@@ -248,25 +212,34 @@ void setup() {
     __enable_irq();
 }
 
+void reset() {
+    changeState(HOME);
+    changeSong(0);
+    changeMode(0);
+    beat = -1;
+
+    deactivateAllKeys();
+}
+
 void loadSongs() {
     int empty[1] = {0};
     static char** songNotes1;
-    songNotes1 = malloc(sizeof(char*) * 10);
+    songNotes1 = malloc(sizeof(char*) * 15);
 
-    songNotes1[0] = "|1|0,|,|";
-    songNotes1[1] = "|2|,|0,|";
-    songNotes1[2] = "|3|0,|,|";
-    songNotes1[3] = "|4|,|0,|";
-    songNotes1[4] = "|5|0,|,|";
-    songNotes1[5] = "|6|,|0,|";
-    songNotes1[6] = "|7|0,|,|";
-    songNotes1[7] = "|8|,|0,|";
-    songNotes1[8] = "|9|0,|,|";
-    songNotes1[9] = "|10|,|0,|";
+    songNotes1[0] = "|1|0,16,|,|";
+    songNotes1[1] = "|2|,|0,16,|";
+    songNotes1[2] = "|3|0,16,|,|";
+    songNotes1[3] = "|4|,|0,16,|";
+    songNotes1[4] = "|5|0,16,|,|";
+    songNotes1[5] = "|6|,|0,16,|";
+    songNotes1[6] = "|7|0,16,|,|";
+    songNotes1[7] = "|8|,|0,16,|";
+    songNotes1[8] = "|9|0,16,|,|";
+    songNotes1[9] = "|10|,|0,16,|";
 
     songs = malloc(NUM_SONGS * sizeof(struct Song));
 
-    songs[0].tempo = 2;
+    songs[0].tempo = 50000;
     songs[0].beat = 0;
     songs[0].onKeys = empty;
     songs[0].onKeysLength = 0;
@@ -295,11 +268,37 @@ int  resetSong(int index) {
     return 0;
 }
 
+void changeState(int nextState) {
+    if (nextState == HOME || nextState == PLAY || nextState == PAUSE) {
+        state = nextState;
+        GPIOA->ODR &= ~(0x00000300);
+        GPIOA->ODR |= state << 8;
+    }
+}
+
+void changeSong(int nextSongID) {
+    if (nextSongID >= 0 && nextSongID < NUM_SONGS) {
+        songID = nextSongID;
+
+        GPIOA->ODR &= ~(0x00000030);
+        GPIOA->ODR |= songID << 4;
+    }
+}
+
+void changeMode(int nextMode) {
+    if (nextMode == 0 || nextMode == 1 || nextMode == 2) {
+        mode = nextMode;
+
+        GPIOA->ODR &= ~(0x000000C0);
+        GPIOA->ODR |= mode << 6;
+    }
+}
+
 void playBeat() {
     if (((double) beat / songs[songID].tempo) >= songs[songID].beat) {
         if (songs[songID].endOfSong) {
             deactivateAllKeys();
-            state = HOME;
+            changeState(HOME);
         } else {
             activateKeys(songs[songID].onKeys, songs[songID].onKeysLength);
             deactivateKeys(songs[songID].offKeys, songs[songID].offKeysLength);
