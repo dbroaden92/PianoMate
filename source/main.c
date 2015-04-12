@@ -77,7 +77,7 @@ int main(void) {
     while (1) {
         if (state == PLAY) {
             playBeat();
-        } else if (state != HOME && state != PAUSE) {
+        } else if (state != HOME && state != PLAY && state != PAUSE) {
             reset();
         }
     }
