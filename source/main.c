@@ -20,14 +20,7 @@
 struct Song {
     int tempo;
     int beat;
-    int *onKeys;
-    int onKeysLength;
-    int *offKeys;
-    int offKeysLength;
     int endOfSong;
-    char **notes;
-    int noteIndex;
-    int notesLength;
 };
 
 //------------------------------------------------------------------------------
@@ -38,6 +31,7 @@ int songID;
 int mode;
 long beat;
 struct Song* songs;
+
 //------------------------------------------------------------------------------
 // Interrupt Handler Prototypes
 //------------------------------------------------------------------------------
@@ -52,24 +46,23 @@ void EXTI3_IRQHandler(void);
 void setup(void);
 void reset(void);
 void loadSongs(void);
+void resetSong(int index);
 void changeState(int);
 void changeSong(int);
 void changeMode(int);
-int resetSong(int index);
 void playBeat(void);
 void activateKeys(int* keyArr, int length);
 void deactivateKeys(int* keyArr, int length);
 void deactivateAllKeys(void);
 
 //------------------------------------------------------------------------------
-// Utility Function Prototypes
+// Function Prototypes
 //------------------------------------------------------------------------------
-char** str_split(char* str, const char delim);
-char *strdup(const char *s);
-char *strcpy(char *dest, const char *src);
-size_t strlen(const char *s);
-char *strtok(char *str, const char *delim);
+void song1(int beat);
 
+//------------------------------------------------------------------------------
+// Main Loop
+//------------------------------------------------------------------------------
 int main(void) {
 
     setup();
@@ -124,7 +117,7 @@ void EXTI2_IRQHandler(void) {
         if (state == HOME || state == PAUSE) {
             if (state == HOME) {
                 resetSong(songID);
-                beat = -1;
+                beat = 0;
             }
             changeState(PLAY);
         } else if (state == PLAY) {
@@ -216,56 +209,22 @@ void reset() {
     changeState(HOME);
     changeSong(0);
     changeMode(0);
-    beat = -1;
+    beat = 0;
 
     deactivateAllKeys();
 }
 
 void loadSongs() {
-    int empty[1] = {0};
-    static char** songNotes1;
-    songNotes1 = malloc(sizeof(char*) * 15);
-
-    songNotes1[0] = "|1|0,16,|,|";
-    songNotes1[1] = "|2|,|0,16,|";
-    songNotes1[2] = "|3|0,16,|,|";
-    songNotes1[3] = "|4|,|0,16,|";
-    songNotes1[4] = "|5|0,16,|,|";
-    songNotes1[5] = "|6|,|0,16,|";
-    songNotes1[6] = "|7|0,16,|,|";
-    songNotes1[7] = "|8|,|0,16,|";
-    songNotes1[8] = "|9|0,16,|,|";
-    songNotes1[9] = "|10|,|0,16,|";
-
     songs = malloc(NUM_SONGS * sizeof(struct Song));
 
-    songs[0].tempo = 50000;
-    songs[0].beat = 0;
-    songs[0].onKeys = empty;
-    songs[0].onKeysLength = 0;
-    songs[0].offKeys = empty;
-    songs[0].offKeysLength = 0;
+    songs[0].tempo = 5000;
+    songs[0].beat = 1;
     songs[0].endOfSong = 0;
-    songs[0].notes = songNotes1;
-    songs[0].noteIndex = 0;
-    songs[0].notesLength = 10;
 }
 
-int  resetSong(int index) {
-    if (index >= 0 && index <= NUM_SONGS - 1) {
-        int empty[1] = {0};
-        songs[index].beat = 0;
-        songs[index].onKeys = empty;
-        songs[index].onKeysLength = 0;
-        songs[index].offKeys = empty;
-        songs[index].offKeysLength = 0;
-        songs[index].endOfSong = 0;
-        songs[index].noteIndex = 0;
-
-        return 1;
-    }
-
-    return 0;
+void  resetSong(int index) {
+    songs[index].beat = 1;
+    songs[index].endOfSong = 0;
 }
 
 void changeState(int nextState) {
@@ -300,65 +259,12 @@ void playBeat() {
             deactivateAllKeys();
             changeState(HOME);
         } else {
-            activateKeys(songs[songID].onKeys, songs[songID].onKeysLength);
-            deactivateKeys(songs[songID].offKeys, songs[songID].offKeysLength);
-            if (songs[songID].noteIndex >= songs[songID].notesLength) {
-                songs[songID].endOfSong = 1;
-                songs[songID].beat++;
-            } else {
-                int i;
-                long beatNum;
-                char *line, *beatNumStr, *onKeyStr, *offKeyStr;
-                char **lineSplit, **onKeyArr, **offKeyArr;
-                int *onKeys, *offKeys, onKeysLength, offKeysLength;
-                free(songs[songID].onKeys);
-                free(songs[songID].offKeys);
-                line = malloc(sizeof(char) * 25);
-                strcpy(line, songs[songID].notes[songs[songID].noteIndex]);
-
-                lineSplit = str_split(line, '|');
-                free(line);
-                beatNumStr = lineSplit[0];
-                onKeyStr = lineSplit[1];
-                offKeyStr = lineSplit[2];
-
-                beatNum = strtol(beatNumStr, (char**) NULL, 10);
-                free(beatNumStr);
-
-                onKeyArr = str_split(onKeyStr, ',');
-                free(onKeyStr);
-
-                offKeyArr = str_split(offKeyStr, ',');
-                free(offKeyStr);
-                free(lineSplit);
-
-                onKeys = malloc(sizeof(int) * 10);
-                offKeys = malloc(sizeof(int) * 10);
-
-                i = 0;
-                while (onKeyArr[i] != NULL) {
-                    onKeys[i] = strtol(onKeyArr[i], (char**) NULL, 10);
-                    i++;
-                }
-                onKeysLength = i;
-                free(onKeyArr);
-
-                i = 0;
-                while (offKeyArr[i] != NULL) {
-                    long testInt;
-                    testInt = strtol(offKeyArr[i], (char**) NULL, 10);
-                    offKeys[i] = testInt;
-                    i++;
-                }
-                offKeysLength = i;
-                free(offKeyArr);
-
-                songs[songID].beat = beatNum;
-                songs[songID].onKeys = onKeys;
-                songs[songID].onKeysLength = onKeysLength;
-                songs[songID].offKeys = offKeys;
-                songs[songID].offKeysLength = offKeysLength;
-                songs[songID].noteIndex++;
+            switch(songID) {
+                case 0:
+                    song1(songs[songID].beat);
+                    break;
+                default:
+                    break;
             }
         }
     }
@@ -404,61 +310,283 @@ void deactivateAllKeys() {
     GPIOC->ODR &= ~(0x0000FFFF);
 }
 
-char** str_split(char* a_str, const char a_delim) {
-    char** result = 0;
-    size_t count = 0;
-    char* tmp = a_str;
-    char* last_comma = 0;
-    char delim[2];
-    delim[0] = a_delim;
-    delim[1] = 0;
+void song1(int beat) {
+    int nextBeat = -1, onKeys[10], offKeys[10], onLength = 0, offLength = 0, end = 0;
+    switch(beat) {
+        case 1:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 2;
+            break;
+        case 2:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 5;
+            break;
+        case 5:
+            onKeys[0] = 2;
+            onLength = 1;
+            nextBeat = 6;
+            break;
+        case 6:
+            offKeys[0] = 2;
+            offLength = 1;
+            nextBeat = 9;
+            break;
+        case 9:
+            onKeys[0] = 0;
+            onLength = 1;
+            nextBeat = 10;
+            break;
+        case 10:
+            offKeys[0] = 0;
+            offLength = 1;
+            nextBeat = 13;
+            break;
+        case 13:
+            onKeys[0] = 2;
+            onLength = 1;
+            nextBeat = 14;
+            break;
+        case 14:
+            offKeys[0] = 2;
+            offLength = 1;
+            nextBeat = 17;
+            break;
+        case 17:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 18;
+            break;
+        case 18:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 21;
+            break;
+        case 21:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 22;
+            break;
+        case 22:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 25;
+            break;
+        case 25:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 26;
+            break;
+        case 26:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 33;
+            break;
+        case 33:
+            onKeys[0] = 2;
+            onLength = 1;
+            nextBeat = 34;
+            break;
+        case 34:
+            offKeys[0] = 2;
+            offLength = 1;
+            nextBeat = 37;
+            break;
+        case 37:
+            onKeys[0] = 2;
+            onLength = 1;
+            nextBeat = 38;
+            break;
+        case 38:
+            offKeys[0] = 2;
+            offLength = 1;
+            nextBeat = 41;
+            break;
+        case 41:
+            onKeys[0] = 2;
+            onLength = 1;
+            nextBeat = 42;
+            break;
+        case 42:
+            offKeys[0] = 2;
+            offLength = 1;
+            nextBeat = 49;
+            break;
+        case 49:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 50;
+            break;
+        case 50:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 53;
+            break;
+        case 53:
+            onKeys[0] = 7;
+            onLength = 1;
+            nextBeat = 54;
+            break;
+        case 54:
+            offKeys[0] = 7;
+            offLength = 1;
+            nextBeat = 57;
+            break;
+        case 57:
+            onKeys[0] = 7;
+            onLength = 1;
+            nextBeat = 58;
+            break;
+        case 58:
+            offKeys[0] = 7;
+            offLength = 1;
+            nextBeat = 65;
+            break;
+        case 65:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 66;
+            break;
+        case 66:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 69;
+            break;
+        case 69:
+            onKeys[0] = 2;
+            onLength = 1;
+            nextBeat = 70;
+            break;
+        case 70:
+            offKeys[0] = 2;
+            offLength = 1;
+            nextBeat = 73;
+            break;
+        case 73:
+            onKeys[0] = 0;
+            onLength = 1;
+            nextBeat = 74;
+            break;
+        case 74:
+            offKeys[0] = 0;
+            offLength = 1;
+            nextBeat = 77;
+            break;
+        case 77:
+            onKeys[0] = 2;
+            onLength = 1;
+            nextBeat = 78;
+            break;
+        case 78:
+            offKeys[0] = 2;
+            offLength = 1;
+            nextBeat = 81;
+            break;
+        case 81:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 82;
+            break;
+        case 82:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 85;
+            break;
+        case 85:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 86;  
+            break;
+        case 86:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 89;
+            break;
+        case 89:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 90;
+            break;
+        case 90:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 93;
+            break;
+        case 93:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 94;
+            break;
+        case 94:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 97;
+            break;
+        case 97:
+            onKeys[0] = 2;
+            onLength = 1;
+            nextBeat = 98;
+            break;
+        case 98:
+            offKeys[0] = 2;
+            offLength = 1;
+            nextBeat = 101;
+            break;
+        case 101:
+            onKeys[0] = 2;
+            onLength = 1;
+            nextBeat = 102;
+            break;
+        case 102:
+            offKeys[0] = 2;
+            offLength = 1;
+            nextBeat = 105;
+            break;
+        case 105:
+            onKeys[0] = 4;
+            onLength = 1;
+            nextBeat = 106;
+            break;
+        case 106:
+            offKeys[0] = 4;
+            offLength = 1;
+            nextBeat = 109;
+            break;
+        case 109:
+            onKeys[0] = 2;
+            onLength = 1;
+            nextBeat = 110;
+            break;
+        case 110:
+            offKeys[0] = 2;
+            offLength = 1;
+            nextBeat = 113;
+            break;
+        case 113:
+            onKeys[0] = 0;
+            onLength = 1;
+            nextBeat = 114;
+            break;
+        case 114:
+            offKeys[0] = 0;
+            offLength = 1;
+            nextBeat = 128;
+            break;
+        case 128:
+            end = 1;
+            break;
+        default:
+            end = 1;
+    }
 
-    // Count how many elements will be extracted.
-    while (*tmp) {
-        if (a_delim == *tmp) {
-            count++;
-            last_comma = tmp;
+    if (songID == 0) {
+        activateKeys(onKeys, onLength);
+        deactivateKeys(offKeys, offLength);
+        if (end == 1) {
+            songs[songID].endOfSong = 1;
+        } else {
+            songs[songID].beat = nextBeat;
         }
-        tmp++;
     }
-
-    // Add space for trailing token.
-    count += last_comma < (a_str + strlen(a_str) - 1);
-
-    // Add space for terminating null string so caller
-    // knows where the list of returned strings ends.
-    count++;
-
-    result = malloc(sizeof(char*) * count);
-
-    if (result) {
-        size_t idx  = 0;
-        char* token = strtok(a_str, delim);
-
-        while (token) {
-            *(result + idx++) = strdup(token);
-            token = strtok(0, delim);
-        }
-        *(result + idx) = 0;
-    }
-
-    return result;
-}
-
-char *strdup (const char *s) {
-    char *d = malloc(strlen(s) + 1);
-    if (d == NULL) {
-        return NULL;
-    }
-    strcpy(d, s);
-    return d;
-}
-
-char *strcpy(char *dest, const char *src) {
-    char *saved = dest;
-    while (*src) {
-        *dest++ = *src++;
-    }
-    *dest = 0;
-    return saved;
 }
