@@ -12,7 +12,7 @@
 #define HOME        1
 #define PLAY        2
 #define PAUSE       3
-#define NUM_SONGS   1
+#define NUM_SONGS   2
 
 //------------------------------------------------------------------------------
 // Structs
@@ -21,6 +21,7 @@ struct Song {
     int tempo;
     int beat;
     int endOfSong;
+
 };
 
 //------------------------------------------------------------------------------
@@ -220,6 +221,10 @@ void loadSongs() {
     songs[0].tempo = 5000;
     songs[0].beat = 1;
     songs[0].endOfSong = 0;
+
+    songs[1].tempo = 5000;
+    songs[1].beat = 1;
+    songs[1].endOfSong = 0;
 }
 
 void  resetSong(int index) {
@@ -277,10 +282,10 @@ void activateKeys(int* keyArr, int length) {
     int i;
     for (i = 0; i < length; i++) {
         int key = keyArr[i];
-        if (key >= 0 && key <=15) {
+        if (key >= 0 && key <= 11) {
             activateB |= 1 << key;
-        } else if (key >= 16 && key <= 31) {
-            activateC |= 1 << (key - 16);
+        } else if (key >= 12 && key <= 23) {
+            activateC |= 1 << (key - 12);
         }
     }
 
@@ -294,10 +299,10 @@ void deactivateKeys(int* keyArr, int length) {
     int i;
     for (i = 0; i < length; i++) {
         int key = keyArr[i];
-        if (key >= 0 && key <=15) {
+        if (key >= 0 && key <= 11) {
             deactivateB |= 1 << key;
-        } else if (key >= 16 && key <= 31) {
-            deactivateC |= 1 << (key - 16);
+        } else if (key >= 12 && key <= 23) {
+            deactivateC |= 1 << (key - 12);
         }
     }
 
@@ -310,6 +315,7 @@ void deactivateAllKeys() {
     GPIOC->ODR &= ~(0x0000FFFF);
 }
 
+// Mary Had A Little Lamb (1-Octave)
 void song1(int beat) {
     int nextBeat = -1, onKeys[10], offKeys[10], onLength = 0, offLength = 0, end = 0;
     switch(beat) {
@@ -581,6 +587,340 @@ void song1(int beat) {
     }
 
     if (songID == 0) {
+        activateKeys(onKeys, onLength);
+        deactivateKeys(offKeys, offLength);
+        if (end == 1) {
+            songs[songID].endOfSong = 1;
+        } else {
+            songs[songID].beat = nextBeat;
+        }
+    }
+}
+
+// Mary Had A Little Lamb (2-Octave)
+void song2(int beat) {
+    int nextBeat = -1, onKeys[10], offKeys[10], onLength = 0, offLength = 0, end = 0;
+    switch(beat) {
+        case 1:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 2;
+            break;
+        case 2:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 5;
+            break;
+        case 5:
+            onKeys[0] = 2;
+            onKeys[1] = 14;
+            onLength = 2;
+            nextBeat = 6;
+            break;
+        case 6:
+            offKeys[0] = 2;
+            offKeys[1] = 14;
+            offLength = 2;
+            nextBeat = 9;
+            break;
+        case 9:
+            onKeys[0] = 0;
+            onKeys[1] = 12;
+            onLength = 2;
+            nextBeat = 10;
+            break;
+        case 10:
+            offKeys[0] = 0;
+            offKeys[1] = 12;
+            offLength = 2;
+            nextBeat = 13;
+            break;
+        case 13:
+            onKeys[0] = 2;
+            onKeys[1] = 14;
+            onLength = 2;
+            nextBeat = 14;
+            break;
+        case 14:
+            offKeys[0] = 2;
+            offKeys[1] = 14;
+            offLength = 2;
+            nextBeat = 17;
+            break;
+        case 17:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 18;
+            break;
+        case 18:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 21;
+            break;
+        case 21:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 22;
+            break;
+        case 22:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 25;
+            break;
+        case 25:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 26;
+            break;
+        case 26:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 33;
+            break;
+        case 33:
+            onKeys[0] = 2;
+            onKeys[1] = 14;
+            onLength = 2;
+            nextBeat = 34;
+            break;
+        case 34:
+            offKeys[0] = 2;
+            offKeys[1] = 14;
+            offLength = 2;
+            nextBeat = 37;
+            break;
+        case 37:
+            onKeys[0] = 2;
+            onKeys[1] = 14;
+            onLength = 2;
+            nextBeat = 38;
+            break;
+        case 38:
+            offKeys[0] = 2;
+            offKeys[1] = 14;
+            offLength = 2;
+            nextBeat = 41;
+            break;
+        case 41:
+            onKeys[0] = 2;
+            onKeys[1] = 14;
+            onLength = 2;
+            nextBeat = 42;
+            break;
+        case 42:
+            offKeys[0] = 2;
+            offKeys[1] = 14;
+            offLength = 2;
+            nextBeat = 49;
+            break;
+        case 49:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 50;
+            break;
+        case 50:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 53;
+            break;
+        case 53:
+            onKeys[0] = 7;
+            onKeys[1] = 19;
+            onLength = 2;
+            nextBeat = 54;
+            break;
+        case 54:
+            offKeys[0] = 7;
+            offKeys[1] = 19;
+            offLength = 2;
+            nextBeat = 57;
+            break;
+        case 57:
+            onKeys[0] = 7;
+            onKeys[1] = 19;
+            onLength = 2;
+            nextBeat = 58;
+            break;
+        case 58:
+            offKeys[0] = 7;
+            offKeys[1] = 19;
+            offLength = 2;
+            nextBeat = 65;
+            break;
+        case 65:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 66;
+            break;
+        case 66:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 69;
+            break;
+        case 69:
+            onKeys[0] = 2;
+            onKeys[1] = 14;
+            onLength = 2;
+            nextBeat = 70;
+            break;
+        case 70:
+            offKeys[0] = 2;
+            offKeys[1] = 14;
+            offLength = 2;
+            nextBeat = 73;
+            break;
+        case 73:
+            onKeys[0] = 0;
+            onKeys[1] = 12;
+            onLength = 2;
+            nextBeat = 74;
+            break;
+        case 74:
+            offKeys[0] = 0;
+            offKeys[1] = 12;
+            offLength = 2;
+            nextBeat = 77;
+            break;
+        case 77:
+            onKeys[0] = 2;
+            onKeys[1] = 14;
+            onLength = 2;
+            nextBeat = 78;
+            break;
+        case 78:
+            offKeys[0] = 2;
+            offKeys[1] = 14;
+            offLength = 2;
+            nextBeat = 81;
+            break;
+        case 81:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 82;
+            break;
+        case 82:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 85;
+            break;
+        case 85:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 86;  
+            break;
+        case 86:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 89;
+            break;
+        case 89:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 90;
+            break;
+        case 90:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 93;
+            break;
+        case 93:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 94;
+            break;
+        case 94:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 97;
+            break;
+        case 97:
+            onKeys[0] = 2;
+            onKeys[1] = 14;
+            onLength = 2;
+            nextBeat = 98;
+            break;
+        case 98:
+            offKeys[0] = 2;
+            offKeys[1] = 14;
+            offLength = 2;
+            nextBeat = 101;
+            break;
+        case 101:
+            onKeys[0] = 2;
+            onKeys[1] = 14;
+            onLength = 2;
+            nextBeat = 102;
+            break;
+        case 102:
+            offKeys[0] = 2;
+            offKeys[1] = 14;
+            offLength = 2;
+            nextBeat = 105;
+            break;
+        case 105:
+            onKeys[0] = 4;
+            onKeys[1] = 16;
+            onLength = 2;
+            nextBeat = 106;
+            break;
+        case 106:
+            offKeys[0] = 4;
+            offKeys[1] = 16;
+            offLength = 2;
+            nextBeat = 109;
+            break;
+        case 109:
+            onKeys[0] = 2;
+            onKeys[1] = 14;
+            onLength = 2;
+            nextBeat = 110;
+            break;
+        case 110:
+            offKeys[0] = 2;
+            offKeys[1] = 14;
+            offLength = 2;
+            nextBeat = 113;
+            break;
+        case 113:
+            onKeys[0] = 0;
+            onKeys[1] = 12;
+            onLength = 2;
+            nextBeat = 114;
+            break;
+        case 114:
+            offKeys[0] = 0;
+            offKeys[1] = 12;
+            offLength = 2;
+            nextBeat = 128;
+            break;
+        case 128:
+            end = 1;
+            break;
+        default:
+            end = 1;
+    }
+
+    if (songID == 1) {
         activateKeys(onKeys, onLength);
         deactivateKeys(offKeys, offLength);
         if (end == 1) {
