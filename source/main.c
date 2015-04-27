@@ -60,6 +60,7 @@ void deactivateAllKeys(void);
 // Function Prototypes
 //------------------------------------------------------------------------------
 void song1(int beat);
+void song2(int beat);
 
 //------------------------------------------------------------------------------
 // Main Loop
@@ -175,7 +176,6 @@ void setup() {
     GPIOC->OSPEEDR &= ~(0xFFFFFFFF);
     GPIOC->PUPDR &= ~(0xFFFFFFFF);
 
-
     // Configure Interrupts
     SYSCFG->EXTICR[0] &= ~(0xFFFF);
     EXTI->RTSR &= ~(0x0000000F);
@@ -267,6 +267,9 @@ void playBeat() {
             switch(songID) {
                 case 0:
                     song1(songs[songID].beat);
+                    break;
+                case 1:
+                    song2(songs[songID].beat);
                     break;
                 default:
                     break;
