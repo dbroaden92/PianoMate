@@ -55,6 +55,7 @@ void playBeat(void);
 void activateKeys(int* keyArr, int length);
 void deactivateKeys(int* keyArr, int length);
 void deactivateAllKeys(void);
+int debounce(uint32_t mask);
 
 //------------------------------------------------------------------------------
 // Function Prototypes
@@ -84,11 +85,14 @@ int main(void) {
 // Song Select Button
 void EXTI0_IRQHandler(void) {
     if ((EXTI->IMR & EXTI_IMR_MR0) && (EXTI->PR & EXTI_PR_PR0)) {
-        if (state == HOME) {
-            if (songID == NUM_SONGS - 1) {
-                changeSong(0);
-            } else {
-                changeSong(songID + 1);
+        // Check if an actual falling edge after debouncing
+        if (0 == debounce(0x00000001)) {
+            if (state == HOME) {
+                if (songID == NUM_SONGS - 1) {
+                    changeSong(0);
+                } else {
+                    changeSong(songID + 1);
+                }
             }
         }
 
@@ -100,11 +104,14 @@ void EXTI0_IRQHandler(void) {
 // Mode Select Button
 void EXTI1_IRQHandler(void) {
     if ((EXTI->IMR & EXTI_IMR_MR1) && (EXTI->PR & EXTI_PR_PR1)) {
-        if (state == HOME) {
-            if (mode == 2) {
-                changeMode(0);
-            } else {
-                changeMode(mode + 1);
+        // Check if an actual falling edge after debouncing
+        if (0 == debounce(0x00000002)) {
+            if (state == HOME) {
+                if (mode == 2) {
+                    changeMode(0);
+                } else {
+                    changeMode(mode + 1);
+                }
             }
         }
 
@@ -116,14 +123,17 @@ void EXTI1_IRQHandler(void) {
 // Play/Pause Button
 void EXTI2_IRQHandler(void) {
     if ((EXTI->IMR & EXTI_IMR_MR2) && (EXTI->PR & EXTI_PR_PR2)) {
-        if (state == HOME || state == PAUSE) {
-            if (state == HOME) {
-                resetSong(songID);
-                beat = 0;
+        // Check if an actual falling edge after debouncing
+        if (0 == debounce(0x00000004)) {
+            if (state == HOME || state == PAUSE) {
+                if (state == HOME) {
+                    resetSong(songID);
+                    beat = 0;
+                }
+                changeState(PLAY);
+            } else if (state == PLAY) {
+                changeState(PAUSE);
             }
-            changeState(PLAY);
-        } else if (state == PLAY) {
-            changeState(PAUSE);
         }
 
         EXTI->PR |= EXTI_PR_PR2;
@@ -134,9 +144,12 @@ void EXTI2_IRQHandler(void) {
 // Stop Button
 void EXTI3_IRQHandler(void) {
     if ((EXTI->IMR & EXTI_IMR_MR3) && (EXTI->PR & EXTI_PR_PR3)) {
-        if (state == PLAY || state == PAUSE) {
-            changeState(HOME);
-            deactivateAllKeys();
+        // Check if an actual falling edge after debouncing
+        if (0 == debounce(0x00000008)) {
+            if (state == PLAY || state == PAUSE) {
+                changeState(HOME);
+                deactivateAllKeys();
+            }
         }
 
         EXTI->PR |= EXTI_PR_PR3;
@@ -316,6 +329,21 @@ void deactivateKeys(int* keyArr, int length) {
 void deactivateAllKeys() {
     GPIOB->ODR &= ~(0x0000FFFF);
     GPIOC->ODR &= ~(0x0000FFFF);
+}
+
+int debounce(uint32_t mask) {
+    int i, count = 0, loops = 50000;
+    for (i = 0; i < loops; i++) {
+        if (GPIOA->IDR & mask) {
+            count++;
+        }
+    }
+
+    if (count > (loops / 2)) {
+        return 1;
+    }
+
+    return 0;
 }
 
 // Mary Had A Little Lamb (1-Octave)
